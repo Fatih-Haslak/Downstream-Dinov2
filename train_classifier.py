@@ -1,22 +1,30 @@
 # Import necessary modules and functions
-from tools.classification import load_classification_data, train_classification_model
+from tools.classification import train_classification_model
+from dataloader import ValfDataSetLoader
+from data_augmentation import augmentation_data
 from model import Classifier  # Import custom model from model.py file
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-# Check if CUDA is available and set PyTorch to use GPU or CPU accordingly
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = "cpu" 
+root_dir= r"Dataset_Quart_smoothed_hikmet\Train\*"
+val_root_dir = r"Dataset_Quart_smoothed_hikmet\Val\*"
+#augmentatıon data
+transform,noise = augmentation_data()
 
-# Use the load_data function from tools.training to load our dataset
-# This function presumably returns a set of data loaders and the number of classes in the dataset
-dataloaders, num_classes = load_classification_data()
 
-# Initialize our classifier model with the number of output classes equal to num_classes
+train_dataloaders = ValfDataSetLoader(root_dir,transform=transform,noise=noise,batch_size=8) #image,labels
+val_dataloaders = ValfDataSetLoader(val_root_dir,transform=None,noise=None,batch_size=1) #image,labels
+dataloaders = {'train': train_dataloaders, 'val': val_dataloaders}
+print(len(train_dataloaders))
+# dataloaders, num_classes = load_classification_data()
 
-model = Classifier(num_classes) # this will load the small model
-# model = Classifier(num_classes, backbone = 'dinov2_b') # to load the base model
+num_classes = 1
+#model = Classifier(1) # this will load the small model
+model = Classifier(num_classes, backbone = 'dinov2_b') # to load the base model
 # model = Classifier(num_classes, backbone = 'dinov2_l') # to load the large model
 # model = Classifier(num_classes, backbone = 'dinov2_g') # to load the largest model
 
@@ -25,8 +33,8 @@ model = Classifier(num_classes) # this will load the small model
 model.to(device)
 
 # Set our loss function to Cross Entropy Loss, a common choice for classification problems
-criterion = nn.CrossEntropyLoss()
-
+#criterion = nn.CrossEntropyLoss()
+criterion = nn.BCEWithLogitsLoss()
 # Initialize Stochastic Gradient Descent (SGD) as our optimizer
 # Set the initial learning rate to 0.001 and momentum to 0.9
 optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
@@ -38,4 +46,5 @@ scheduler = ReduceLROnPlateau(optimizer, 'min', patience=7, verbose=True)
 
 # Finally, use the train_model function from tools.training to train our model
 # The model, dataloaders, loss function, optimizer, learning rate scheduler, and device are passed as arguments
+
 model = train_classification_model(model, dataloaders, criterion, optimizer, scheduler, device)
